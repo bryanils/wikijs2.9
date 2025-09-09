@@ -267,6 +267,17 @@
                           @change='onAccordionChange'
                           @select-page-for-child='openPageSelectorForChild'
                         )
+                        
+                        // Accordion Name Editor
+                        v-card-text
+                          v-text-field(
+                            outlined
+                            :label='"Accordion Name"'
+                            prepend-icon='mdi-folder'
+                            v-model='current.label'
+                            counter='255'
+                            @input='onAccordionLabelChange'
+                          )
 
                       v-card-text(v-if='current.kind')
                         v-radio-group.pl-8(v-model='current.visibilityMode', mandatory, hide-details)
@@ -361,7 +372,7 @@ export default {
       copyFromLocaleCode: 'en',
       bulkPageSelectorOpen: false,
       childForPageSelection: null,
-      expandedAccordions: new Set()
+      expandedAccordions: {}
     }
   },
   computed: {
@@ -510,6 +521,10 @@ export default {
         this.$forceUpdate()
       }
     },
+    onAccordionLabelChange() {
+      // Trigger change event to update the tree
+      this.onAccordionChange(this.current)
+    },
     openBulkPageSelector() {
       this.bulkPageSelectorOpen = true
     },
@@ -578,15 +593,15 @@ export default {
       this.$store.commit(`loadingStop`, 'admin-navigation-save')
     },
     toggleAccordion(accordion) {
-      if (this.expandedAccordions.has(accordion.id)) {
-        this.expandedAccordions.delete(accordion.id)
+      if (this.expandedAccordions[accordion.id]) {
+        this.$delete(this.expandedAccordions, accordion.id)
       } else {
-        this.expandedAccordions.add(accordion.id)
+        this.$set(this.expandedAccordions, accordion.id, true)
       }
       this.selectItem(accordion)
     },
     isAccordionExpanded(accordion) {
-      return this.expandedAccordions.has(accordion.id)
+      return !!this.expandedAccordions[accordion.id]
     },
     async refresh() {
       await this.$apollo.queries.trees.refetch()

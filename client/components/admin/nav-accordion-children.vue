@@ -34,7 +34,7 @@
         v-list-item(
           :key='child.id'
           :class='(child === current) ? "blue" : ""'
-          @click='$emit("toggle-accordion", child)'
+          @click='toggleChildAccordion(child)'
           :style='`padding-left: ${(level * 20) + 40}px;`'
         )
           v-list-item-avatar(size='20', tile)
@@ -42,11 +42,11 @@
             v-icon(v-else, size='16') {{ child.icon || 'mdi-folder' }}
           v-list-item-title.caption {{ child.label }}
           v-list-item-action
-            v-icon(size='16') {{ expandedAccordions && expandedAccordions.has(child.id) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+            v-icon(size='16') {{ expandedAccordions && expandedAccordions[child.id] ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
         
         // Recursively show nested accordion children when expanded
         nav-accordion-children(
-          v-if='expandedAccordions && expandedAccordions.has(child.id) && child.children && child.children.length > 0'
+          v-if='expandedAccordions && expandedAccordions[child.id] && child.children && child.children.length > 0'
           :children='child.children'
           :current='current'
           :level='level + 1'
@@ -73,8 +73,14 @@ export default {
       default: 0
     },
     expandedAccordions: {
-      type: Set,
-      default: () => new Set()
+      type: Object,
+      default: () => ({})
+    }
+  },
+  methods: {
+    toggleChildAccordion(child) {
+      // Just emit the toggle event - let parent handle the actual toggle
+      this.$emit('toggle-accordion', child)
     }
   }
 }

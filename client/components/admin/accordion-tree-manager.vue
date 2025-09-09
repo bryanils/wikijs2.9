@@ -14,19 +14,19 @@
                   v-icon(left, small) mdi-plus
                   span Add Item
               v-list(dense)
-                v-list-item(@click='onAddChild(currentAccordion, "link")')
+                v-list-item(@click='onAddChild(null, "link")')
                   v-list-item-icon
                     v-icon(small) mdi-link
                   v-list-item-title Link
-                v-list-item(@click='onAddChild(currentAccordion, "header")')
+                v-list-item(@click='onAddChild(null, "header")')
                   v-list-item-icon
                     v-icon(small) mdi-format-title
                   v-list-item-title Header
-                v-list-item(@click='onAddChild(currentAccordion, "divider")')
+                v-list-item(@click='onAddChild(null, "divider")')
                   v-list-item-icon
                     v-icon(small) mdi-minus
                   v-list-item-title Divider
-                v-list-item(@click='onAddChild(currentAccordion, "accordion")')
+                v-list-item(@click='onAddChild(null, "accordion")')
                   v-list-item-icon
                     v-icon(small) mdi-folder
                   v-list-item-title Nested Accordion
@@ -50,17 +50,26 @@
                 
             // Accordion Tree Structure
             .tree-content.pa-3
-              accordion-tree-item(
-                v-if='currentAccordion'
-                :item='currentAccordion'
-                :selected-item='selectedChild'
-                :expanded-items='expandedItems'
-                @select='onItemSelect'
-                @expand='onItemExpand'
-                @add-child='onAddChild'
-                @remove-child='onRemoveChild'
-                @move-child='onMoveChild'
-              )
+              // Show accordion children directly
+              template(v-if='currentAccordion && currentAccordion.children && currentAccordion.children.length > 0')
+                accordion-tree-item(
+                  v-for='child in currentAccordion.children'
+                  :key='child.id'
+                  :item='child'
+                  :selected-item='selectedChild'
+                  :expanded-items='expandedItems'
+                  @select='onItemSelect'
+                  @expand='onItemExpand'
+                  @add-child='onAddChild'
+                  @remove-child='onRemoveChild'
+                  @move-child='onMoveChild'
+                  :level='0'
+                )
+              
+              // Show message when accordion has no children
+              .text-center.py-4.grey--text(v-else-if='currentAccordion')
+                v-icon(color='grey lighten-1') mdi-folder-plus
+                .mt-2 This accordion is empty. Add items using the button above.
               
               .text-center.py-8.grey--text(v-else)
                 v-icon(large, color='grey lighten-1') mdi-folder-outline
@@ -205,11 +214,21 @@ export default {
       handler(newVal) {
         if (newVal && newVal.id) {
           this.currentAccordion = { ...newVal }
+          // Ensure children array exists
+          if (!this.currentAccordion.children) {
+            this.$set(this.currentAccordion, 'children', [])
+          }
+          // Auto-expand the accordion to show its structure
+          this.expandedItems.add(this.currentAccordion.id)
         } else {
           this.currentAccordion = null
         }
         this.selectedChild = null
         this.breadcrumbs = []
+        // Force update to reflect changes
+        this.$nextTick(() => {
+          this.$forceUpdate()
+        })
       }
     }
   },
@@ -331,6 +350,11 @@ export default {
     
     // Child management
     onAddChild(parent, kind) {
+      // If parent is null, add to the root accordion
+      if (!parent) {
+        parent = this.currentAccordion
+      }
+      
       if (!parent || !parent.children) {
         if (parent) {
           this.$set(parent, 'children', [])
@@ -371,7 +395,12 @@ export default {
     },
     
     onRemoveChild(parent, childIndex) {
-      if (parent.children && parent.children[childIndex]) {
+      // If parent is null, we're removing from the root accordion
+      if (!parent) {
+        parent = this.currentAccordion
+      }
+      
+      if (parent.children && typeof childIndex === 'number' && parent.children[childIndex]) {
         const removedChild = parent.children[childIndex]
         parent.children.splice(childIndex, 1)
         
@@ -381,6 +410,20 @@ export default {
         }
         
         this.emitUpdate()
+      } else if (typeof childIndex === 'object') {
+        // Handle case where childIndex is actually the item to remove
+        const itemToRemove = childIndex
+        const itemIndex = parent.children.findIndex(child => child.id === itemToRemove.id)
+        if (itemIndex !== -1) {
+          parent.children.splice(itemIndex, 1)
+          
+          if (this.selectedChild && this.selectedChild.id === itemToRemove.id) {
+            this.selectedChild = null
+            this.breadcrumbs = []
+          }
+          
+          this.emitUpdate()
+        }
       }
     },
     
@@ -411,6 +454,8 @@ export default {
     },
     
     emitUpdate() {
+      // Force Vue reactivity for deeply nested objects
+      this.$forceUpdate()
       this.$emit('input', this.currentAccordion)
       this.$emit('change', this.currentAccordion)
     }
