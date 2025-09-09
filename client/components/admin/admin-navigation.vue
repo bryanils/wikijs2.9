@@ -145,13 +145,6 @@
                             v-list-item(@click='addItem("accordion")')
                               v-list-item-avatar(size='24'): v-icon mdi-folder
                               v-list-item-title Accordion
-                            v-divider
-                            v-list-item(@click='openAccordionWizard')
-                              v-list-item-avatar(size='24'): v-icon(color='orange') mdi-auto-fix
-                              v-list-item-title
-                                .d-flex.align-center
-                                  span Accordion Wizard
-                                  v-chip.ml-2(x-small, color='orange', text-color='white') NEW
                   v-col
                     v-card(flat, style='border-radius: 0 4px 4px 0;')
                       template(v-if='current.kind === "link"')
@@ -319,12 +312,6 @@
       :current-locale='currentLang'
       @pages-selected='onBulkPagesSelected'
     )
-    
-    accordion-wizard(
-      v-model='accordionWizardOpen'
-      :current-locale='currentLang'
-      @accordion-created='onAccordionCreated'
-    )
 </template>
 
 <script>
@@ -337,7 +324,6 @@ import groupsQuery from 'gql/admin/users/users-query-groups.gql'
 import draggable from 'vuedraggable'
 import AccordionTreeManager from './accordion-tree-manager'
 import BulkPageSelector from './bulk-page-selector'
-import AccordionWizard from './accordion-wizard'
 
 /* global siteConfig, siteLangs */
 
@@ -345,8 +331,7 @@ export default {
   components: {
     draggable,
     AccordionTreeManager,
-    BulkPageSelector,
-    AccordionWizard
+    BulkPageSelector
   },
   data() {
     return {
@@ -362,8 +347,7 @@ export default {
       allLocales: [],
       copyFromLocaleCode: 'en',
       bulkPageSelectorOpen: false,
-      childForPageSelection: null,
-      accordionWizardOpen: false
+      childForPageSelection: null
     }
   },
   computed: {
@@ -527,14 +511,6 @@ export default {
       } else {
         this.current.target = `/${locale}/${path}`
       }
-    },
-    openAccordionWizard() {
-      this.accordionWizardOpen = true
-    },
-    onAccordionCreated(accordion) {
-      this.currentTree = [...this.currentTree, accordion]
-      this.current = accordion
-      this.accordionWizardOpen = false
     },
     async save() {
       this.$store.commit(`loadingStart`, 'admin-navigation-save')

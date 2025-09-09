@@ -8,6 +8,28 @@
             v-icon.mr-2 mdi-file-tree
             .subtitle-2 Accordion Structure
             v-spacer
+            v-menu(offset-y)
+              template(v-slot:activator='{ on }')
+                v-btn(small, color='primary', v-on='on')
+                  v-icon(left, small) mdi-plus
+                  span Add Item
+              v-list(dense)
+                v-list-item(@click='onAddChild(currentAccordion, "link")')
+                  v-list-item-icon
+                    v-icon(small) mdi-link
+                  v-list-item-title Link
+                v-list-item(@click='onAddChild(currentAccordion, "header")')
+                  v-list-item-icon
+                    v-icon(small) mdi-format-title
+                  v-list-item-title Header
+                v-list-item(@click='onAddChild(currentAccordion, "divider")')
+                  v-list-item-icon
+                    v-icon(small) mdi-minus
+                  v-list-item-title Divider
+                v-list-item(@click='onAddChild(currentAccordion, "accordion")')
+                  v-list-item-icon
+                    v-icon(small) mdi-folder
+                  v-list-item-title Nested Accordion
             v-tooltip(top)
               template(v-slot:activator='{ on }')
                 v-btn(icon, small, v-on='on', @click='expandAll')
@@ -309,12 +331,16 @@ export default {
     
     // Child management
     onAddChild(parent, kind) {
-      if (!parent.children) {
-        this.$set(parent, 'children', [])
+      if (!parent || !parent.children) {
+        if (parent) {
+          this.$set(parent, 'children', [])
+        } else {
+          return
+        }
       }
       
       const newChild = {
-        id: `temp_${Date.now()}`,
+        id: `temp_${Date.now()}_${Math.random()}`,
         kind,
         label: `New ${this.capitalizeFirst(kind)}`,
         visibilityMode: 'all',
@@ -325,6 +351,11 @@ export default {
         newChild.icon = 'mdi-link'
         newChild.targetType = 'page'
         newChild.target = ''
+      } else if (kind === 'header') {
+        newChild.icon = 'mdi-format-title'
+      } else if (kind === 'divider') {
+        newChild.icon = 'mdi-minus'
+        newChild.label = ''
       } else if (kind === 'accordion') {
         newChild.icon = 'mdi-folder'
         newChild.expanded = false
@@ -332,6 +363,7 @@ export default {
       }
       
       parent.children.push(newChild)
+      this.expandedItems.add(parent.id)
       this.onItemSelect(newChild)
       this.emitUpdate()
     },
