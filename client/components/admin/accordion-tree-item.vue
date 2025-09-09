@@ -3,17 +3,15 @@
     // Main item
     .tree-item(
       :class='{ "selected": selectedItem && selectedItem.id === item.id, "is-accordion": item.kind === "accordion" }'
-      @click='selectItem'
+      @click='handleItemClick'
     )
       .d-flex.align-center.py-2.px-3
-        // Expand/collapse button for accordions with children
-        v-btn(
+        // Expand indicator (not clickable separately)
+        v-icon.mr-1(
           v-if='item.kind === "accordion" && hasChildren'
-          icon
-          x-small
-          @click.stop='toggleExpanded'
-        )
-          v-icon(small) {{ isExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right' }}
+          small
+          :color='isExpanded ? "primary" : "grey"'
+        ) {{ isExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right' }}
         
         .spacer(v-else, style='width: 24px;')
         
@@ -31,6 +29,10 @@
           style='font-size: 10px;'
         ) {{ item.kind.toUpperCase() }}
         
+        // Direct delete button for testing
+        v-btn(icon, x-small, color='error', @click='deleteItem')
+          v-icon(small) mdi-delete
+          
         // Actions menu
         v-menu(offset-y, left)
           template(v-slot:activator='{ on }')
@@ -160,12 +162,14 @@ export default {
     }
   },
   methods: {
-    selectItem() {
+    handleItemClick() {
+      // Always select the item
       this.$emit('select', this.item)
-    },
-    
-    toggleExpanded() {
-      this.$emit('expand', this.item)
+      
+      // If it's an accordion with children, also toggle expansion
+      if (this.item.kind === 'accordion' && this.hasChildren) {
+        this.$emit('expand', this.item)
+      }
     },
     
     addChild(kind) {
@@ -187,6 +191,9 @@ export default {
     },
     
     deleteItem() {
+      console.log('DELETE BUTTON CLICKED!')
+      // Emit remove-child with parent as null (will be handled by the manager)
+      // and the item to be removed
       this.$emit('remove-child', null, this.item)
     },
     

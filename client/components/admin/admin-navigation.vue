@@ -262,6 +262,7 @@
                             
                         // Enhanced Accordion Tree Manager
                         accordion-tree-manager(
+                          ref='accordionTreeManager'
                           :accordion='current'
                           v-model='current'
                           @change='onAccordionChange'
@@ -276,7 +277,8 @@
                             prepend-icon='mdi-folder'
                             v-model='current.label'
                             counter='255'
-                            @input='onAccordionLabelChange'
+                            @blur='onAccordionLabelChange'
+                            @keyup.enter='onAccordionLabelChange'
                           )
 
                       v-card-text(v-if='current.kind')
@@ -509,10 +511,23 @@ export default {
       this.current.children.splice(index, 1)
     },
     onAccordionChange(updatedAccordion) {
-      // Update the current accordion in the tree
-      const treeIndex = this.currentTree.findIndex(item => item.id === updatedAccordion.id)
-      if (treeIndex !== -1) {
-        this.$set(this.currentTree, treeIndex, updatedAccordion)
+      // Recursively find and update the accordion anywhere in the tree
+      const updateAccordionInTree = (items) => {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].id === updatedAccordion.id) {
+            this.$set(items, i, updatedAccordion)
+            return true
+          }
+          if (items[i].children && items[i].children.length > 0) {
+            if (updateAccordionInTree(items[i].children)) {
+              return true
+            }
+          }
+        }
+        return false
+      }
+      
+      if (updateAccordionInTree(this.currentTree)) {
         // Also update the current item if it's the same accordion
         if (this.current.id === updatedAccordion.id) {
           this.current = updatedAccordion
@@ -532,16 +547,44 @@ export default {
       if (!this.current.children) {
         this.$set(this.current, 'children', [])
       }
+      
+      // Pages are already properly formatted by the bulk selector
       this.current.children.push(...pages)
       this.bulkPageSelectorOpen = false
+      
+      // Show success notification
+      this.$store.commit('showNotification', {
+        message: `Added ${pages.length} page(s) to ${this.current.label}`,
+        style: 'success',
+        icon: 'check'
+      })
+      
+      // Trigger accordion change to update the tree
+      this.onAccordionChange(this.current)
+      
+      // Ensure the accordion is expanded to show new items
+      this.$set(this.expandedAccordions, this.current.id, true)
     },
     openPageSelectorForChild(child) {
       this.childForPageSelection = child
       this.selectPageModal = true
     },
     selectPageHandle ({ path, locale }) {
+      console.log('SELECT PAGE HANDLE CALLED:', path, locale)
       if (this.childForPageSelection) {
-        this.childForPageSelection.target = `/${locale}/${path}`
+        console.log('CHILD FOR PAGE SELECTION:', this.childForPageSelection)
+        // ALWAYS use local state approach - don't modify the object directly
+        const treeManager = this.$refs.accordionTreeManager
+        console.log('TREE MANAGER FOUND:', treeManager)
+        if (treeManager && treeManager.onPageSelected) {
+          console.log('CALLING onPageSelected')
+          // Update local state in the tree manager instead of directly modifying
+          treeManager.onPageSelected(path, locale)
+        } else {
+          console.log('USING FALLBACK - WILL CAUSE CLOSE')
+          // Fallback - update the target directly if local state isn't working
+          this.childForPageSelection.target = `/${locale}/${path}`
+        }
         this.childForPageSelection = null
       } else {
         this.current.target = `/${locale}/${path}`

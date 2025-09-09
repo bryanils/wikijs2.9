@@ -2,7 +2,7 @@
   .accordion-tree-manager
     v-row(no-gutters)
       // Tree Management Panel
-      v-col(cols='7')
+      v-col(cols='12')
         v-card(flat, outlined)
           v-toolbar(flat, color='grey lighten-4', height='48')
             v-icon.mr-2 mdi-file-tree
@@ -75,29 +75,29 @@
                 v-icon(large, color='grey lighten-1') mdi-folder-outline
                 .mt-2 Select an accordion to manage its structure
                 
-      // Live Preview Panel  
-      v-col(cols='5')
-        v-card(flat, outlined)
-          v-toolbar(flat, color='primary', dark, height='48')
-            v-icon.mr-2 mdi-eye
-            .subtitle-2 Live Preview
-            v-spacer
-            v-tooltip(top)
-              template(v-slot:activator='{ on }')
-                v-btn(icon, small, v-on='on', @click='refreshPreview')
-                  v-icon mdi-refresh
-              span Refresh Preview
+      //- // Live Preview Panel  
+      //- v-col(cols='5')
+      //-   v-card(flat, outlined)
+      //-     v-toolbar(flat, color='primary', dark, height='48')
+      //-       v-icon.mr-2 mdi-eye
+      //-       .subtitle-2 Live Preview
+      //-       v-spacer
+      //-       v-tooltip(top)
+      //-         template(v-slot:activator='{ on }')
+      //-           v-btn(icon, small, v-on='on', @click='refreshPreview')
+      //-             v-icon mdi-refresh
+      //-         span Refresh Preview
           
-          .preview-container(style='max-height: 500px; overflow-y: auto;')
-            v-list.pa-0(v-if='currentAccordion', dense, nav)
-              nav-accordion-item(
-                :item='previewAccordion'
-                :level='0'
-              )
+      //-     .preview-container(style='max-height: 500px; overflow-y: auto;')
+      //-       v-list.pa-0(v-if='currentAccordion', dense, nav)
+      //-         nav-accordion-item(
+      //-           :item='previewAccordion'
+      //-           :level='0'
+      //-         )
             
-            .text-center.py-8.grey--text(v-else)
-              v-icon(large, color='grey lighten-1') mdi-eye-off
-              .mt-2 Preview will appear here
+      //-       .text-center.py-8.grey--text(v-else)
+      //-         v-icon(large, color='grey lighten-1') mdi-eye-off
+      //-         .mt-2 Preview will appear here
               
     // Child Item Editor
     v-card.mt-4(v-if='selectedChild', outlined)
@@ -115,16 +115,14 @@
               outlined
               dense
               label='Label'
-              v-model='selectedChild.label'
-              @input='onChildUpdate'
+              v-model='localLabel'
             )
           v-col(cols='3')
             v-text-field(
               outlined
               dense
               label='Icon'
-              v-model='selectedChild.icon'
-              @input='onChildUpdate'
+              v-model='localIcon'
             )
           v-col(cols='3', v-if='selectedChild.kind === "accordion"')
             v-switch(
@@ -152,8 +150,7 @@
                 outlined
                 dense
                 label='URL'
-                v-model='selectedChild.target'
-                @input='onChildUpdate'
+                v-model='localTarget'
               )
               .d-flex.align-center(v-else-if='selectedChild.targetType === "page"')
                 v-btn(
@@ -164,16 +161,23 @@
                   v-icon(left, small) mdi-magnify
                   span Select Page
                 .ml-3.caption.primary--text {{ selectedChild.target || 'No page selected' }}
+                
+      // Save/Cancel buttons
+      v-card-actions
+        v-spacer
+        v-btn(text, @click='cancelEdit') Cancel
+        v-btn(color='primary', @click='saveChanges') Save Changes
 </template>
 
 <script>
 import NavAccordionItem from '@/themes/default/components/nav-accordion-item'
+import AccordionTreeItem from './accordion-tree-item'
 
 export default {
   name: 'AccordionTreeManager',
   components: {
     NavAccordionItem,
-    AccordionTreeItem: () => import('./accordion-tree-item')
+    AccordionTreeItem
   },
   props: {
     accordion: {
@@ -191,6 +195,11 @@ export default {
       selectedChild: null,
       expandedItems: new Set(),
       breadcrumbs: [],
+      // Local state for text inputs to prevent re-renders
+      localLabel: '',
+      localIcon: '',
+      localTarget: '',
+      isEditingChild: false,
       targetTypes: [
         { text: 'External Link', value: 'external' },
         { text: 'External Link (New Tab)', value: 'externalblank' },
@@ -286,6 +295,11 @@ export default {
     // Item selection and navigation
     onItemSelect(item) {
       this.selectedChild = item
+      // Load values into local state when selecting an item
+      this.localLabel = item.label || ''
+      this.localIcon = item.icon || ''
+      this.localTarget = item.target || ''
+      this.isEditingChild = true
       this.buildBreadcrumbs(item)
     },
     
@@ -388,42 +402,47 @@ export default {
       
       parent.children.push(newChild)
       this.expandedItems.add(parent.id)
-      this.onItemSelect(newChild)
-      // Force Vue reactivity for nested arrays
+      
+      // For deeply nested arrays, we need to trigger reactivity on the root
+      // Use $set to ensure Vue detects the change in nested structures
+      this.$set(parent, 'children', [...parent.children])
+      
+      // Don't auto-select the new child - it's annoying
+      // this.onItemSelect(newChild)
+      
+      // Force Vue reactivity for deeply nested changes
       this.$forceUpdate()
       this.emitUpdate()
     },
     
-    onRemoveChild(parent, childIndex) {
+    onRemoveChild(parent, itemToRemove) {
+      console.log('DELETE CALLED:', parent, itemToRemove)
+      
       // If parent is null, we're removing from the root accordion
       if (!parent) {
         parent = this.currentAccordion
       }
       
-      if (parent.children && typeof childIndex === 'number' && parent.children[childIndex]) {
-        const removedChild = parent.children[childIndex]
-        parent.children.splice(childIndex, 1)
+      if (!parent || !parent.children) {
+        console.log('NO PARENT OR CHILDREN')
+        return
+      }
+      
+      // Find and remove the item
+      const itemIndex = parent.children.findIndex(child => child.id === itemToRemove.id)
+      if (itemIndex !== -1) {
+        parent.children.splice(itemIndex, 1)
         
-        if (this.selectedChild && this.selectedChild.id === removedChild.id) {
+        // Force reactivity for deeply nested arrays
+        this.$set(parent, 'children', [...parent.children])
+        
+        if (this.selectedChild && this.selectedChild.id === itemToRemove.id) {
           this.selectedChild = null
           this.breadcrumbs = []
         }
         
+        this.$forceUpdate()
         this.emitUpdate()
-      } else if (typeof childIndex === 'object') {
-        // Handle case where childIndex is actually the item to remove
-        const itemToRemove = childIndex
-        const itemIndex = parent.children.findIndex(child => child.id === itemToRemove.id)
-        if (itemIndex !== -1) {
-          parent.children.splice(itemIndex, 1)
-          
-          if (this.selectedChild && this.selectedChild.id === itemToRemove.id) {
-            this.selectedChild = null
-            this.breadcrumbs = []
-          }
-          
-          this.emitUpdate()
-        }
       }
     },
     
@@ -440,12 +459,54 @@ export default {
     
     // Child editing
     onChildUpdate() {
+      // Save the current selection to restore it after update
+      const currentSelection = this.selectedChild
       this.emitUpdate()
+      // Restore the selection after the update
+      this.$nextTick(() => {
+        this.selectedChild = currentSelection
+      })
+    },
+    
+    // Save/Cancel functionality
+    saveChanges() {
+      if (this.selectedChild) {
+        const currentSelection = this.selectedChild
+        this.selectedChild.label = this.localLabel
+        this.selectedChild.icon = this.localIcon
+        this.selectedChild.target = this.localTarget
+        this.isEditingChild = false
+        this.emitUpdate()
+        // Keep the item selected after saving
+        this.$nextTick(() => {
+          this.selectedChild = currentSelection
+        })
+      }
+    },
+    
+    cancelEdit() {
+      // Reset local state to original values
+      if (this.selectedChild) {
+        this.localLabel = this.selectedChild.label || ''
+        this.localIcon = this.selectedChild.icon || ''
+        this.localTarget = this.selectedChild.target || ''
+      }
+      this.isEditingChild = false
     },
     
     selectPageForChild() {
       // This would open the page selector for the selected child
       this.$emit('select-page-for-child', this.selectedChild)
+    },
+    
+    // Called when a page is selected from the page selector
+    onPageSelected(path, locale) {
+      // Update local state instead of directly modifying the object
+      this.localTarget = `/${locale}/${path}`
+      // Also set the target type to 'page' so the UI shows correctly
+      if (this.selectedChild) {
+        this.selectedChild.targetType = 'page'
+      }
     },
     
     // Utilities
@@ -454,10 +515,20 @@ export default {
     },
     
     emitUpdate() {
+      // Save current selection state
+      const currentSelection = this.selectedChild
+      const currentExpandedItems = new Set(this.expandedItems)
+      
       // Force Vue reactivity for deeply nested objects
       this.$forceUpdate()
       this.$emit('input', this.currentAccordion)
       this.$emit('change', this.currentAccordion)
+      
+      // Restore selection state after update
+      this.$nextTick(() => {
+        this.selectedChild = currentSelection
+        this.expandedItems = currentExpandedItems
+      })
     }
   }
 }

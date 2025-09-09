@@ -8,11 +8,11 @@
         v-btn(icon, @click='close')
           v-icon mdi-close
           
-      v-card-text.pa-0(style='height: calc(100% - 64px);')
+      v-card-text.pa-0(style='height: calc(100% - 128px);')
         v-row(no-gutters, style='height: 100%;')
           // Page Tree
-          v-col(cols='8', style='height: 100%; border-right: 1px solid #e0e0e0;')
-            .d-flex.align-center.px-3.py-2(style='background-color: #f5f5f5; border-bottom: 1px solid #e0e0e0;')
+          v-col(cols='8', style='height: 100%; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column;')
+            .d-flex.align-center.px-3.py-2(style='background-color: #f5f5f5; border-bottom: 1px solid #e0e0e0; flex-shrink: 0;')
               v-text-field(
                 v-model='searchQuery'
                 placeholder='Search pages...'
@@ -33,7 +33,7 @@
                 @click='clearSelection'
               ) Clear All
                 
-            .page-tree-container(style='height: calc(100% - 60px); overflow-y: auto;')
+            .page-tree-container(style='flex: 1; overflow-y: auto;')
               v-treeview(
                 v-model='selectedPageIds'
                 :items='filteredPageTree'
@@ -57,8 +57,8 @@
                     ) {{ item.tags[0] }}
                       
           // Selected Pages Preview
-          v-col(cols='4', style='height: 100%;')
-            .d-flex.align-center.px-3.py-2(style='background-color: #f5f5f5; border-bottom: 1px solid #e0e0e0;')
+          v-col(cols='4', style='height: 100%; display: flex; flex-direction: column;')
+            .d-flex.align-center.px-3.py-2(style='background-color: #f5f5f5; border-bottom: 1px solid #e0e0e0; flex-shrink: 0;')
               v-icon.mr-2 mdi-playlist-check
               .subtitle-2 Selected Pages
               
@@ -162,37 +162,33 @@ export default {
     async loadPages() {
       this.loading = true
       try {
+        // Get all pages using the proper query format
         const response = await this.$apollo.query({
           query: gql`
-            query($locale: String!) {
+            query($limit: Int, $orderBy: PageOrderBy, $orderByDirection: PageOrderByDirection, $locale: String) {
               pages {
-                tree(locale: $locale) {
+                list(limit: $limit, orderBy: $orderBy, orderByDirection: $orderByDirection, locale: $locale) {
                   id
+                  locale
                   path
                   title
-                  isFolder
-                  children {
-                    id
-                    path
-                    title
-                    isFolder
-                    children {
-                      id
-                      path
-                      title
-                      isFolder
-                    }
-                  }
+                  description
+                  createdAt
+                  updatedAt
+                  tags
                 }
               }
             }
           `,
           variables: {
+            limit: 1000,
+            orderBy: 'TITLE',
+            orderByDirection: 'ASC',
             locale: this.currentLocale
           }
         })
         
-        this.pageTree = this.transformPageTree(response.data.pages.tree)
+        this.pageTree = this.transformPageList(response.data.pages.list)
       } catch (error) {
         console.error('Failed to load pages:', error)
         this.$store.commit('showNotification', {
@@ -205,14 +201,75 @@ export default {
       }
     },
     
-    transformPageTree(items) {
-      return items.map(item => ({
-        id: item.id,
-        name: item.title,
-        path: item.path,
-        isFolder: item.isFolder,
-        children: item.children ? this.transformPageTree(item.children) : []
-      }))
+    transformPageList(items) {
+      // Build a hierarchical tree structure from flat page paths
+      const pathMap = new Map()
+      const roots = []
+      
+      // First pass: create all items and folders
+      items.forEach(item => {
+        const pathParts = item.path.split('/').filter(part => part !== '')
+        
+        // Create folder structure
+        for (let i = 0; i < pathParts.length; i++) {
+          const currentPath = '/' + pathParts.slice(0, i + 1).join('/')
+          
+          if (!pathMap.has(currentPath)) {
+            const isLeafPage = (i === pathParts.length - 1)
+            const folderItem = {
+              id: isLeafPage ? item.id : `folder-${currentPath}`,
+              name: isLeafPage ? item.title : pathParts[i],
+              path: currentPath,
+              isFolder: !isLeafPage,
+              pageId: isLeafPage ? item.id : null,
+              children: [],
+              originalPage: isLeafPage ? item : null
+            }
+            pathMap.set(currentPath, folderItem)
+          }
+        }
+      })
+      
+      // Second pass: build parent-child relationships
+      pathMap.forEach((item, path) => {
+        const pathParts = path.split('/').filter(part => part !== '')
+        
+        if (pathParts.length === 1) {
+          // Root level item
+          roots.push(item)
+        } else {
+          // Find parent
+          const parentPath = '/' + pathParts.slice(0, -1).join('/')
+          const parent = pathMap.get(parentPath)
+          if (parent) {
+            parent.children.push(item)
+          }
+        }
+      })
+      
+      // Sort children by name
+      const sortChildren = (items) => {
+        items.forEach(item => {
+          if (item.children.length > 0) {
+            item.children.sort((a, b) => {
+              // Folders first, then pages
+              if (a.isFolder && !b.isFolder) return -1
+              if (!a.isFolder && b.isFolder) return 1
+              return a.name.localeCompare(b.name)
+            })
+            sortChildren(item.children)
+          }
+        })
+      }
+      
+      roots.sort((a, b) => {
+        if (a.isFolder && !b.isFolder) return -1
+        if (!a.isFolder && b.isFolder) return 1
+        return a.name.localeCompare(b.name)
+      })
+      
+      sortChildren(roots)
+      return roots
     },
     
     onPageSelection(selectedItems) {
