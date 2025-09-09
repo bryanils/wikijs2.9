@@ -365,6 +365,8 @@ export default {
       parent.children.push(newChild)
       this.expandedItems.add(parent.id)
       this.onItemSelect(newChild)
+      // Force Vue reactivity for nested arrays
+      this.$forceUpdate()
       this.emitUpdate()
     },
     

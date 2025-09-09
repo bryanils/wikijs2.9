@@ -114,18 +114,29 @@
                               :class='(navItem === current) ? "blue" : ""'
                               @click='selectItem(navItem)'
                               ) {{navItem.label}}
-                            v-list-item(
-                              v-else-if='navItem.kind === "accordion"'
-                              :key='navItem.id'
-                              :class='(navItem === current) ? "blue" : ""'
-                              @click='selectItem(navItem)'
+                            template(v-else-if='navItem.kind === "accordion"')
+                              v-list-item(
+                                :key='navItem.id'
+                                :class='(navItem === current) ? "blue" : ""'
+                                @click='toggleAccordion(navItem)'
                               )
-                              v-list-item-avatar(size='24', tile)
-                                v-icon(v-if='navItem.icon && navItem.icon.match(/fa[a-z] fa-/)', size='19') {{ navItem.icon }}
-                                v-icon(v-else) {{ navItem.icon || 'mdi-folder' }}
-                              v-list-item-title {{navItem.label}}
-                              v-list-item-action
-                                v-chip(small, color='orange', text-color='white') ACC
+                                v-list-item-avatar(size='24', tile)
+                                  v-icon(v-if='navItem.icon && navItem.icon.match(/fa[a-z] fa-/)', size='19') {{ navItem.icon }}
+                                  v-icon(v-else) {{ navItem.icon || 'mdi-folder' }}
+                                v-list-item-title {{navItem.label}}
+                                v-list-item-action
+                                  v-icon {{ isAccordionExpanded(navItem) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+                              
+                              // Show accordion children when expanded
+                              nav-accordion-children(
+                                v-if='isAccordionExpanded(navItem) && navItem.children && navItem.children.length > 0'
+                                :children='navItem.children'
+                                :current='current'
+                                :level='1'
+                                :expanded-accordions='expandedAccordions'
+                                @select='selectItem'
+                                @toggle-accordion='toggleAccordion'
+                              )
                       v-card-chin
                         v-menu(offset-y, bottom, min-width='200px', style='flex: 1 1;')
                           template(v-slot:activator='{ on }')
@@ -238,7 +249,7 @@
 
                       template(v-else-if='current.kind === "accordion"')
                         v-toolbar(height='56', color='teal lighten-1', flat, dark)
-                          .subtitle-1 Enhanced Accordion Editor
+                          .subtitle-1 FUCKING TEST CHANGE HERE
                           v-spacer
                           v-tooltip(top)
                             template(v-slot:activator='{ on }')
@@ -324,6 +335,7 @@ import groupsQuery from 'gql/admin/users/users-query-groups.gql'
 import draggable from 'vuedraggable'
 import AccordionTreeManager from './accordion-tree-manager'
 import BulkPageSelector from './bulk-page-selector'
+import NavAccordionChildren from './nav-accordion-children'
 
 /* global siteConfig, siteLangs */
 
@@ -331,7 +343,8 @@ export default {
   components: {
     draggable,
     AccordionTreeManager,
-    BulkPageSelector
+    BulkPageSelector,
+    NavAccordionChildren
   },
   data() {
     return {
@@ -347,7 +360,8 @@ export default {
       allLocales: [],
       copyFromLocaleCode: 'en',
       bulkPageSelectorOpen: false,
-      childForPageSelection: null
+      childForPageSelection: null,
+      expandedAccordions: new Set()
     }
   },
   computed: {
@@ -488,6 +502,12 @@ export default {
       const treeIndex = this.currentTree.findIndex(item => item.id === updatedAccordion.id)
       if (treeIndex !== -1) {
         this.$set(this.currentTree, treeIndex, updatedAccordion)
+        // Also update the current item if it's the same accordion
+        if (this.current.id === updatedAccordion.id) {
+          this.current = updatedAccordion
+        }
+        // Force reactivity update
+        this.$forceUpdate()
       }
     },
     openBulkPageSelector() {
@@ -556,6 +576,17 @@ export default {
         this.$store.commit('pushGraphError', err)
       }
       this.$store.commit(`loadingStop`, 'admin-navigation-save')
+    },
+    toggleAccordion(accordion) {
+      if (this.expandedAccordions.has(accordion.id)) {
+        this.expandedAccordions.delete(accordion.id)
+      } else {
+        this.expandedAccordions.add(accordion.id)
+      }
+      this.selectItem(accordion)
+    },
+    isAccordionExpanded(accordion) {
+      return this.expandedAccordions.has(accordion.id)
     },
     async refresh() {
       await this.$apollo.queries.trees.refetch()
