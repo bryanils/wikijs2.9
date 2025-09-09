@@ -10,7 +10,7 @@
   }
 
   @at-root .theme--dark & {
-    color: mc('grey', '300');
+    color: mc('grey', '200');
   }
 
   // ---------------------------------
@@ -18,7 +18,7 @@
   // ---------------------------------
 
   a {
-    color: mc('blue', '700');
+    color: mc('blue', '500');
 
     &.is-internal-link.is-invalid-page {
       color: mc('red', '700');

@@ -61,7 +61,11 @@ module.exports = class Navigation extends Model {
 
   static getAuthorizedItems(tree = [], groups = []) {
     return _.filter(tree, leaf => {
-      return leaf.visibilityMode === 'all' || _.intersection(leaf.visibilityGroups, groups).length > 0
+      const isAuthorized = leaf.visibilityMode === 'all' || _.intersection(leaf.visibilityGroups, groups).length > 0
+      if (isAuthorized && leaf.children && leaf.children.length > 0) {
+        leaf.children = WIKI.models.navigation.getAuthorizedItems(leaf.children, groups)
+      }
+      return isAuthorized
     })
   }
 }

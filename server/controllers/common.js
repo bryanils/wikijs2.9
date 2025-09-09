@@ -480,14 +480,22 @@ router.get('/*', async (req, res, next) => {
 
         // -> Build sidebar navigation
         let sdi = 1
-        const sidebar = (await WIKI.models.navigation.getTree({ cache: true, locale: pageArgs.locale, groups: req.user.groups })).map(n => ({
-          i: `sdi-${sdi++}`,
-          k: n.kind,
-          l: n.label,
-          c: n.icon,
-          y: n.targetType,
-          t: n.target
-        }))
+        function transformNavItem(n) {
+          const transformed = {
+            i: `sdi-${sdi++}`,
+            k: n.kind,
+            l: n.label,
+            c: n.icon,
+            y: n.targetType,
+            t: n.target
+          }
+          if (n.kind === 'accordion') {
+            transformed.expanded = n.expanded
+            transformed.children = n.children ? n.children.map(transformNavItem) : []
+          }
+          return transformed
+        }
+        const sidebar = (await WIKI.models.navigation.getTree({ cache: true, locale: pageArgs.locale, groups: req.user.groups })).map(transformNavItem)
 
         // -> Build theme code injection
         const injectCode = {

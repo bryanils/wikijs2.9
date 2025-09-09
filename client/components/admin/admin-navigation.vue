@@ -114,6 +114,18 @@
                               :class='(navItem === current) ? "blue" : ""'
                               @click='selectItem(navItem)'
                               ) {{navItem.label}}
+                            v-list-item(
+                              v-else-if='navItem.kind === "accordion"'
+                              :key='navItem.id'
+                              :class='(navItem === current) ? "blue" : ""'
+                              @click='selectItem(navItem)'
+                              )
+                              v-list-item-avatar(size='24', tile)
+                                v-icon(v-if='navItem.icon && navItem.icon.match(/fa[a-z] fa-/)', size='19') {{ navItem.icon }}
+                                v-icon(v-else) {{ navItem.icon || 'mdi-folder' }}
+                              v-list-item-title {{navItem.label}}
+                              v-list-item-action
+                                v-chip(small, color='orange', text-color='white') ACC
                       v-card-chin
                         v-menu(offset-y, bottom, min-width='200px', style='flex: 1 1;')
                           template(v-slot:activator='{ on }')
@@ -130,6 +142,9 @@
                             v-list-item(@click='addItem("divider")')
                               v-list-item-avatar(size='24'): v-icon mdi-minus
                               v-list-item-title {{$t('navigation.divider')}}
+                            v-list-item(@click='addItem("accordion")')
+                              v-list-item-avatar(size='24'): v-icon mdi-folder
+                              v-list-item-title Accordion
                   v-col
                     v-card(flat, style='border-radius: 0 4px 4px 0;')
                       template(v-if='current.kind === "link"')
@@ -220,6 +235,75 @@
                           v-btn.px-5(color='white', outlined, @click='deleteItem(current)')
                             v-icon(left) mdi-delete
                             span {{$t('navigation.delete', { kind: $t('navigation.divider') })}}
+
+                      template(v-else-if='current.kind === "accordion"')
+                        v-toolbar(height='56', color='teal lighten-1', flat, dark)
+                          .subtitle-1 Edit Accordion
+                          v-spacer
+                          v-btn.px-5(color='white', outlined, @click='deleteItem(current)')
+                            v-icon(left) mdi-delete
+                            span Delete Accordion
+                        v-card-text
+                          v-text-field(
+                            outlined
+                            :label='$t("navigation.label")'
+                            prepend-icon='mdi-format-title'
+                            v-model='current.label'
+                            counter='255'
+                          )
+                          v-text-field(
+                            outlined
+                            :label='$t("navigation.icon")'
+                            prepend-icon='mdi-dice-5'
+                            v-model='current.icon'
+                            hide-details
+                          )
+                          v-switch(
+                            v-model='current.expanded'
+                            label='Expanded by default'
+                            color='primary'
+                            hide-details
+                          )
+                        v-divider
+                        v-card-text
+                          .subtitle-2.mb-3 Accordion Children
+                          .caption.mb-3 Manage child items for this accordion
+                          
+                          v-list(v-if='current.children && current.children.length > 0', dense)
+                            v-list-item(
+                              v-for='(child, childIdx) in current.children'
+                              :key='child.id'
+                              :class='(child === current) ? "blue" : ""'
+                              @click='selectItem(child)'
+                            )
+                              v-list-item-avatar(size='20')
+                                v-icon(size='16') {{ child.icon || 'mdi-link' }}
+                              v-list-item-title {{ child.label }}
+                              v-list-item-action
+                                v-btn(icon, x-small, @click.stop='removeChild(childIdx)')
+                                  v-icon mdi-delete
+                          
+                          .text-center.my-3(v-else)
+                            .caption.grey--text No child items yet
+                          
+                          v-menu(offset-y, bottom, min-width='200px')
+                            template(v-slot:activator='{ on }')
+                              v-btn(v-on='on', small, color='primary', outlined, block)
+                                v-icon(left, small) mdi-plus
+                                span Add Child Item
+                            v-list
+                              v-list-item(@click='addChildItem("link")')
+                                v-list-item-avatar(size='20'): v-icon mdi-link
+                                v-list-item-title Link
+                              v-list-item(@click='addChildItem("header")')
+                                v-list-item-avatar(size='20'): v-icon mdi-format-title
+                                v-list-item-title Header
+                              v-list-item(@click='addChildItem("divider")')
+                                v-list-item-avatar(size='20'): v-icon mdi-minus
+                                v-list-item-title Divider
+                              v-list-item(@click='addChildItem("accordion")')
+                                v-list-item-avatar(size='20'): v-icon mdi-folder
+                                v-list-item-title Nested Accordion
 
                       v-card-text(v-if='current.kind')
                         v-radio-group.pl-8(v-model='current.visibilityMode', mandatory, hide-details)
@@ -364,6 +448,15 @@ export default {
         case 'header':
           newItem.label = this.$t('navigation.untitled', { kind: this.$t(`navigation.header`) })
           break
+        case 'accordion':
+          newItem = {
+            ...newItem,
+            label: 'New Accordion',
+            icon: 'mdi-folder',
+            expanded: false,
+            children: []
+          }
+          break
       }
       this.currentTree = [...this.currentTree, newItem]
       this.current = newItem
@@ -384,6 +477,47 @@ export default {
     copyFromLocale () {
       this.copyFromLocaleDialogIsShown = false
       this.currentTree = [...this.currentTree, ..._.get(_.find(this.trees, ['locale', this.copyFromLocaleCode]), 'items', null) || []]
+    },
+    addChildItem(kind) {
+      if (!this.current.children) {
+        this.$set(this.current, 'children', [])
+      }
+      
+      let newChild = {
+        id: uuid(),
+        kind,
+        visibilityMode: 'all',
+        visibilityGroups: []
+      }
+      
+      switch (kind) {
+        case 'link':
+          newChild = {
+            ...newChild,
+            label: 'New Child Link',
+            icon: 'mdi-chevron-right',
+            targetType: 'home',
+            target: ''
+          }
+          break
+        case 'header':
+          newChild.label = 'New Child Header'
+          break
+        case 'accordion':
+          newChild = {
+            ...newChild,
+            label: 'New Child Accordion',
+            icon: 'mdi-folder',
+            expanded: false,
+            children: []
+          }
+          break
+      }
+      
+      this.current.children.push(newChild)
+    },
+    removeChild(index) {
+      this.current.children.splice(index, 1)
     },
     async save() {
       this.$store.commit(`loadingStart`, 'admin-navigation-save')
@@ -472,6 +606,28 @@ export default {
                 target
                 visibilityMode
                 visibilityGroups
+                expanded
+                children {
+                  id
+                  kind
+                  label
+                  icon
+                  targetType
+                  target
+                  visibilityMode
+                  visibilityGroups
+                  expanded
+                  children {
+                    id
+                    kind
+                    label
+                    icon
+                    targetType
+                    target
+                    visibilityMode
+                    visibilityGroups
+                  }
+                }
               }
             }
           }
