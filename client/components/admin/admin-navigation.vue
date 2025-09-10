@@ -249,7 +249,7 @@
 
                       template(v-else-if='current.kind === "accordion"')
                         v-toolbar(height='56', color='teal lighten-1', flat, dark)
-                          .subtitle-1 FUCKING TEST CHANGE HERE
+                          .subtitle-1 Edit Accordion
                           v-spacer
                           v-tooltip(top)
                             template(v-slot:activator='{ on }')

@@ -222,7 +222,8 @@ export default {
       deep: true,
       handler(newVal) {
         if (newVal && newVal.id) {
-          this.currentAccordion = { ...newVal }
+          // Work directly with the original object - single source of truth
+          this.currentAccordion = newVal
           // Ensure children array exists
           if (!this.currentAccordion.children) {
             this.$set(this.currentAccordion, 'children', [])
@@ -471,16 +472,13 @@ export default {
     // Save/Cancel functionality
     saveChanges() {
       if (this.selectedChild) {
-        const currentSelection = this.selectedChild
+        // Update the original object directly
         this.selectedChild.label = this.localLabel
         this.selectedChild.icon = this.localIcon
         this.selectedChild.target = this.localTarget
         this.isEditingChild = false
+        // Notify parent component of the change
         this.emitUpdate()
-        // Keep the item selected after saving
-        this.$nextTick(() => {
-          this.selectedChild = currentSelection
-        })
       }
     },
     
@@ -501,11 +499,14 @@ export default {
     
     // Called when a page is selected from the page selector
     onPageSelected(path, locale) {
-      // Update local state instead of directly modifying the object
-      this.localTarget = `/${locale}/${path}`
-      // Also set the target type to 'page' so the UI shows correctly
+      const target = `/${locale}/${path}`
+      // Update both local state and the original object
+      this.localTarget = target
       if (this.selectedChild) {
         this.selectedChild.targetType = 'page'
+        this.selectedChild.target = target
+        // Notify parent of the change
+        this.emitUpdate()
       }
     },
     
@@ -515,20 +516,9 @@ export default {
     },
     
     emitUpdate() {
-      // Save current selection state
-      const currentSelection = this.selectedChild
-      const currentExpandedItems = new Set(this.expandedItems)
-      
-      // Force Vue reactivity for deeply nested objects
-      this.$forceUpdate()
+      // Since we're working directly with the original object, we just need to notify parent
       this.$emit('input', this.currentAccordion)
       this.$emit('change', this.currentAccordion)
-      
-      // Restore selection state after update
-      this.$nextTick(() => {
-        this.selectedChild = currentSelection
-        this.expandedItems = currentExpandedItems
-      })
     }
   }
 }
