@@ -708,6 +708,17 @@ export default {
                     target
                     visibilityMode
                     visibilityGroups
+                    expanded
+                    children {
+                      id
+                      kind
+                      label
+                      icon
+                      targetType
+                      target
+                      visibilityMode
+                      visibilityGroups
+                    }
                   }
                 }
               }
