@@ -8,7 +8,7 @@
     )
       .tree-item-content
         // Expand indicator (not clickable separately)  
-        span.expand-indicator(v-if='item.kind === "accordion" && hasChildren')
+        span.expand-indicator(v-if='hasChildren')
           v-icon(small, :color='isExpanded ? "primary" : "grey"') {{ isExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right' }}
         
         span.expand-spacer(v-else, style='width: 24px; display: inline-block;')
@@ -71,10 +71,9 @@
                   v-icon(small, color='error') mdi-delete
                 v-list-item-title Delete
     
-    // Children (if accordion and expanded)
+    // Children (if item has children and is expanded)
     .tree-children(
-      v-if='item.kind === "accordion" && hasChildren && isExpanded'
-      style='border-left: 2px solid #e0e0e0;'
+      v-if='hasChildren && isExpanded'
     )
       draggable(
         v-model='item.children'
@@ -99,9 +98,9 @@
           @move-child='$emit("move-child", $event)'
         )
     
-    // Empty state for accordion with no children
+    // Empty state for expanded items with no children
     .tree-empty(
-      v-else-if='item.kind === "accordion" && !hasChildren && isExpanded'
+      v-else-if='!hasChildren && isExpanded && item.kind === "accordion"'
     )
       .text-center.py-4.grey--text(style='border: 2px dashed #e0e0e0; border-radius: 4px;')
         v-icon(color='grey lighten-1') mdi-folder-open-outline
@@ -165,18 +164,13 @@ export default {
       return !!this.expandedItems[this.item.id]
     }
   },
-  mounted() {
-    // DEBUG: Log level for each item
-    const padding = this.level * 16 + 16
-    console.log(`ITEM: "${this.item.label}" | Level: ${this.level} | Padding: ${padding}px | Kind: ${this.item.kind} | HasChildren: ${this.hasChildren} | IsExpanded: ${this.isExpanded} | ExpandedItems: ${JSON.stringify(this.expandedItems)}`)
-  },
   methods: {
     handleItemClick() {
       // Always select the item
       this.$emit('select', this.item)
       
-      // If it's an accordion with children, also toggle expansion
-      if (this.item.kind === 'accordion' && this.hasChildren) {
+      // If it has children, also toggle expansion
+      if (this.hasChildren) {
         this.$emit('expand', this.item)
       }
     },
@@ -200,7 +194,6 @@ export default {
     },
     
     deleteItem() {
-      console.log('DELETE BUTTON CLICKED!')
       // Emit remove-child with parent as null (will be handled by the manager)
       // and the item to be removed
       this.$emit('remove-child', null, this.item)

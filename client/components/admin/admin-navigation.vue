@@ -675,49 +675,48 @@ export default {
     },
     trees: {
       query: gql`
+        fragment NavigationItemFields on NavigationItem {
+          id
+          kind
+          label
+          icon
+          targetType
+          target
+          visibilityMode
+          visibilityGroups
+          expanded
+        }
+        
         {
           navigation {
             tree {
               locale
               items {
-                id
-                kind
-                label
-                icon
-                targetType
-                target
-                visibilityMode
-                visibilityGroups
-                expanded
+                ...NavigationItemFields
                 children {
-                  id
-                  kind
-                  label
-                  icon
-                  targetType
-                  target
-                  visibilityMode
-                  visibilityGroups
-                  expanded
+                  ...NavigationItemFields
                   children {
-                    id
-                    kind
-                    label
-                    icon
-                    targetType
-                    target
-                    visibilityMode
-                    visibilityGroups
-                    expanded
+                    ...NavigationItemFields
                     children {
-                      id
-                      kind
-                      label
-                      icon
-                      targetType
-                      target
-                      visibilityMode
-                      visibilityGroups
+                      ...NavigationItemFields
+                      children {
+                        ...NavigationItemFields
+                        children {
+                          ...NavigationItemFields
+                          children {
+                            ...NavigationItemFields
+                            children {
+                              ...NavigationItemFields
+                              children {
+                                ...NavigationItemFields
+                                children {
+                                  ...NavigationItemFields
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
                 }
