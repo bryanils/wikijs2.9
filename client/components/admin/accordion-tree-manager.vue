@@ -49,7 +49,7 @@
                 | {{ crumb.label }}
                 
             // Accordion Tree Structure
-            .tree-content.pa-3
+            .tree-content
               // Show accordion children directly
               template(v-if='currentAccordion && currentAccordion.children && currentAccordion.children.length > 0')
                 accordion-tree-item(
@@ -193,7 +193,7 @@ export default {
     return {
       currentAccordion: null,
       selectedChild: null,
-      expandedItems: new Set(),
+      expandedItems: {},
       breadcrumbs: [],
       // Local state for text inputs to prevent re-renders
       localLabel: '',
@@ -224,12 +224,68 @@ export default {
         if (newVal && newVal.id) {
           // Work directly with the original object - single source of truth
           this.currentAccordion = newVal
+          
+          // DEBUG: Log the accordion structure
+          console.log('=== ACCORDION STRUCTURE DEBUG ===')
+          console.log('Accordion:', newVal.label, 'ID:', newVal.id)
+          console.log('Children count:', newVal.children ? newVal.children.length : 0)
+          if (newVal.children) {
+            newVal.children.forEach((child, index) => {
+              console.log(`Child ${index}:`, child.label, 'Kind:', child.kind, 'ID:', child.id)
+              if (child.children && child.children.length > 0) {
+                child.children.forEach((grandchild, gIndex) => {
+                  console.log(`  Grandchild ${gIndex}:`, grandchild.label, 'Kind:', grandchild.kind)
+                  if (grandchild.children && grandchild.children.length > 0) {
+                    grandchild.children.forEach((ggchild, ggIndex) => {
+                      console.log(`    Great-grandchild ${ggIndex}:`, ggchild.label, 'Kind:', ggchild.kind)
+                    })
+                  }
+                })
+              }
+            })
+          }
+          console.log('=== END ACCORDION DEBUG ===')
+          
           // Ensure children array exists
           if (!this.currentAccordion.children) {
             this.$set(this.currentAccordion, 'children', [])
           }
           // Auto-expand the accordion to show its structure
-          this.expandedItems.add(this.currentAccordion.id)
+          this.expandedItems[this.currentAccordion.id] = true
+          
+          // ALSO auto-expand all accordion children so we can see the full structure
+          const expandAllAccordions = (items) => {
+            if (items) {
+              items.forEach(item => {
+                if (item.kind === 'accordion' && item.id) {
+                  this.expandedItems[item.id] = true
+                  if (item.children) {
+                    expandAllAccordions(item.children)
+                  }
+                }
+              })
+            }
+          }
+          expandAllAccordions(newVal.children)
+          
+          // DEBUG: Check if we're getting the same data as left navigation
+          console.log('=== ADMIN ACCORDION RAW DATA ===')
+          console.log('Raw accordion object:', JSON.stringify(newVal, null, 2))
+          console.log('=== END RAW DATA ===')
+          
+          // ALSO DEBUG: Check ALL children at ALL levels
+          const debugAllLevels = (item, depth = 0) => {
+            const indent = '  '.repeat(depth)
+            console.log(`${indent}${item.label} (${item.kind}) - Has children: ${item.children ? item.children.length : 0}`)
+            if (item.children && item.children.length > 0) {
+              item.children.forEach(child => debugAllLevels(child, depth + 1))
+            }
+          }
+          if (newVal.children) {
+            console.log('=== FULL TREE STRUCTURE ===')
+            newVal.children.forEach(child => debugAllLevels(child, 0))
+            console.log('=== END FULL TREE ===')
+          }
         } else {
           this.currentAccordion = null
         }
@@ -271,7 +327,7 @@ export default {
     expandAll() {
       const expandItem = (item) => {
         if (item.id) {
-          this.expandedItems.add(item.id)
+          this.expandedItems[item.id] = true
         }
         if (item.children) {
           item.children.forEach(expandItem)
@@ -285,7 +341,7 @@ export default {
     },
     
     collapseAll() {
-      this.expandedItems.clear()
+      this.expandedItems = {}
       this.$forceUpdate()
     },
     
@@ -355,12 +411,11 @@ export default {
     
     // Tree expansion
     onItemExpand(item) {
-      if (this.expandedItems.has(item.id)) {
-        this.expandedItems.delete(item.id)
+      if (this.expandedItems[item.id]) {
+        delete this.expandedItems[item.id]
       } else {
-        this.expandedItems.add(item.id)
+        this.expandedItems[item.id] = true
       }
-      this.$forceUpdate()
     },
     
     // Child management
@@ -402,7 +457,7 @@ export default {
       }
       
       parent.children.push(newChild)
-      this.expandedItems.add(parent.id)
+      this.expandedItems[parent.id] = true
       
       // For deeply nested arrays, we need to trigger reactivity on the root
       // Use $set to ensure Vue detects the change in nested structures

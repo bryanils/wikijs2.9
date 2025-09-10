@@ -3,78 +3,78 @@
     // Main item
     .tree-item(
       :class='{ "selected": selectedItem && selectedItem.id === item.id, "is-accordion": item.kind === "accordion" }'
+      :style='`padding-left: ${level * 16 + 16}px;`'
       @click='handleItemClick'
     )
-      .d-flex.align-center.py-2.px-3
-        // Expand indicator (not clickable separately)
-        v-icon.mr-1(
-          v-if='item.kind === "accordion" && hasChildren'
-          small
-          :color='isExpanded ? "primary" : "grey"'
-        ) {{ isExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right' }}
+      .tree-item-content
+        // Expand indicator (not clickable separately)  
+        span.expand-indicator(v-if='item.kind === "accordion" && hasChildren')
+          v-icon(small, :color='isExpanded ? "primary" : "grey"') {{ isExpanded ? 'mdi-chevron-down' : 'mdi-chevron-right' }}
         
-        .spacer(v-else, style='width: 24px;')
+        span.expand-spacer(v-else, style='width: 24px; display: inline-block;')
         
         // Icon
-        v-icon.mr-3(:color='getItemColor(item.kind)', small) {{ getItemIcon(item) }}
+        v-icon.item-icon(:color='getItemColor(item.kind)', small) {{ getItemIcon(item) }}
         
         // Label
-        .flex-grow-1.item-label {{ item.label }}
+        span.item-label {{ item.label }}
         
         // Kind indicator
-        v-chip.mr-2(
+        v-chip.item-chip(
           x-small
           :color='getItemColor(item.kind)'
           text-color='white'
           style='font-size: 10px;'
         ) {{ item.kind.toUpperCase() }}
         
-        // Direct delete button for testing
-        v-btn(icon, x-small, color='error', @click='deleteItem')
-          v-icon(small) mdi-delete
-          
-        // Actions menu
-        v-menu(offset-y, left)
-          template(v-slot:activator='{ on }')
-            v-btn(icon, x-small, v-on='on', @click.stop)
-              v-icon(small) mdi-dots-vertical
-          v-list(dense)
-            v-list-item(@click='$emit("select", item)')
-              v-list-item-icon
-                v-icon(small) mdi-pencil
-              v-list-item-title Edit
-            v-divider(v-if='item.kind === "accordion"')
-            template(v-if='item.kind === "accordion"')
-              v-list-item(@click='addChild("link")')
+        // Actions
+        .item-actions
+          // Direct delete button for testing
+          v-btn(icon, x-small, color='error', @click='deleteItem')
+            v-icon(small) mdi-delete
+            
+          // Actions menu
+          v-menu(offset-y, left)
+            template(v-slot:activator='{ on }')
+              v-btn(icon, x-small, v-on='on', @click.stop)
+                v-icon(small) mdi-dots-vertical
+            v-list(dense)
+              v-list-item(@click='$emit("select", item)')
                 v-list-item-icon
-                  v-icon(small) mdi-link
-                v-list-item-title Add Link
-              v-list-item(@click='addChild("header")')
+                  v-icon(small) mdi-pencil
+                v-list-item-title Edit
+              v-divider(v-if='item.kind === "accordion"')
+              template(v-if='item.kind === "accordion"')
+                v-list-item(@click='addChild("link")')
+                  v-list-item-icon
+                    v-icon(small) mdi-link
+                  v-list-item-title Add Link
+                v-list-item(@click='addChild("header")')
+                  v-list-item-icon
+                    v-icon(small) mdi-format-title
+                  v-list-item-title Add Header
+                v-list-item(@click='addChild("divider")')
+                  v-list-item-icon
+                    v-icon(small) mdi-minus
+                  v-list-item-title Add Divider
+                v-list-item(@click='addChild("accordion")')
+                  v-list-item-icon
+                    v-icon(small) mdi-folder
+                  v-list-item-title Add Nested Accordion
+                v-divider
+              v-list-item(@click='duplicateItem')
                 v-list-item-icon
-                  v-icon(small) mdi-format-title
-                v-list-item-title Add Header
-              v-list-item(@click='addChild("divider")')
+                  v-icon(small) mdi-content-duplicate
+                v-list-item-title Duplicate
+              v-list-item(@click='deleteItem', class='error--text')
                 v-list-item-icon
-                  v-icon(small) mdi-minus
-                v-list-item-title Add Divider
-              v-list-item(@click='addChild("accordion")')
-                v-list-item-icon
-                  v-icon(small) mdi-folder
-                v-list-item-title Add Nested Accordion
-              v-divider
-            v-list-item(@click='duplicateItem')
-              v-list-item-icon
-                v-icon(small) mdi-content-duplicate
-              v-list-item-title Duplicate
-            v-list-item(@click='deleteItem', class='error--text')
-              v-list-item-icon
-                v-icon(small, color='error') mdi-delete
-              v-list-item-title Delete
+                  v-icon(small, color='error') mdi-delete
+                v-list-item-title Delete
     
     // Children (if accordion and expanded)
     .tree-children(
       v-if='item.kind === "accordion" && hasChildren && isExpanded'
-      style='margin-left: 20px; border-left: 2px solid #e0e0e0;'
+      style='border-left: 2px solid #e0e0e0;'
     )
       draggable(
         v-model='item.children'
@@ -91,6 +91,7 @@
           :item='child'
           :selected-item='selectedItem'
           :expanded-items='expandedItems'
+          :level='level + 1'
           @select='$emit("select", $event)'
           @expand='$emit("expand", $event)'
           @add-child='$emit("add-child", $event.parent, $event.kind)'
@@ -101,7 +102,6 @@
     // Empty state for accordion with no children
     .tree-empty(
       v-else-if='item.kind === "accordion" && !hasChildren && isExpanded'
-      style='margin-left: 20px;'
     )
       .text-center.py-4.grey--text(style='border: 2px dashed #e0e0e0; border-radius: 4px;')
         v-icon(color='grey lighten-1') mdi-folder-open-outline
@@ -148,8 +148,12 @@ export default {
       default: null
     },
     expandedItems: {
-      type: Set,
-      default: () => new Set()
+      type: Object,
+      default: () => ({})
+    },
+    level: {
+      type: Number,
+      default: 0
     }
   },
   computed: {
@@ -158,8 +162,13 @@ export default {
     },
     
     isExpanded() {
-      return this.expandedItems.has(this.item.id)
+      return !!this.expandedItems[this.item.id]
     }
+  },
+  mounted() {
+    // DEBUG: Log level for each item
+    const padding = this.level * 16 + 16
+    console.log(`ITEM: "${this.item.label}" | Level: ${this.level} | Padding: ${padding}px | Kind: ${this.item.kind} | HasChildren: ${this.hasChildren} | IsExpanded: ${this.isExpanded} | ExpandedItems: ${JSON.stringify(this.expandedItems)}`)
   },
   methods: {
     handleItemClick() {
@@ -268,6 +277,22 @@ export default {
     }
   }
   
+  .tree-item-content {
+    display: block;
+    padding: 8px 0;
+    position: relative;
+  }
+  
+  .expand-indicator, .expand-spacer, .item-icon, .item-label, .item-chip {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  
+  .item-actions {
+    float: right;
+  }
+  
   .item-label {
     font-weight: 500;
     font-size: 14px;
@@ -276,6 +301,18 @@ export default {
   .tree-children {
     margin-top: 4px;
     margin-bottom: 4px;
+    margin-left: 20px;
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: #e0e0e0;
+    }
   }
   
   .tree-empty {
