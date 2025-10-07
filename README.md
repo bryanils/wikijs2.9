@@ -1,3 +1,15 @@
+# 🔱 Modified Fork of Wiki.js
+
+**This is a personal modified fork of the original [Wiki.js](https://github.com/requarks/wiki) project.**
+
+**Original project:** https://github.com/requarks/wiki
+**Original author:** [Requarks](https://github.com/requarks)
+**License:** AGPLv3
+
+This fork has been modified for specific use cases and is not affiliated with the original Wiki.js project.
+
+---
+
 <div align="center">
 
 <picture>
@@ -21,6 +33,14 @@
 ##### A modern, lightweight and powerful wiki app built on NodeJS
 
 </div>
+
+---
+
+> **Note:** This is a personal fork of [Wiki.js](https://github.com/requarks/wiki) modified for specific use cases.
+>
+> Original project by [Requarks](https://github.com/requarks) • Licensed under AGPLv3
+
+---
 
 - **[Official Website](https://js.wiki/)**
 - **[Documentation](https://docs.requarks.io/)**
