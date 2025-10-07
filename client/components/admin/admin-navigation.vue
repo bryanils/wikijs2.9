@@ -114,18 +114,29 @@
                               :class='(navItem === current) ? "blue" : ""'
                               @click='selectItem(navItem)'
                               ) {{navItem.label}}
-                            v-list-item(
-                              v-else-if='navItem.kind === "accordion"'
-                              :key='navItem.id'
-                              :class='(navItem === current) ? "blue" : ""'
-                              @click='selectItem(navItem)'
+                            template(v-else-if='navItem.kind === "accordion"')
+                              v-list-item(
+                                :key='navItem.id'
+                                :class='(navItem === current) ? "blue" : ""'
+                                @click='toggleAccordion(navItem)'
                               )
-                              v-list-item-avatar(size='24', tile)
-                                v-icon(v-if='navItem.icon && navItem.icon.match(/fa[a-z] fa-/)', size='19') {{ navItem.icon }}
-                                v-icon(v-else) {{ navItem.icon || 'mdi-folder' }}
-                              v-list-item-title {{navItem.label}}
-                              v-list-item-action
-                                v-chip(small, color='orange', text-color='white') ACC
+                                v-list-item-avatar(size='24', tile)
+                                  v-icon(v-if='navItem.icon && navItem.icon.match(/fa[a-z] fa-/)', size='19') {{ navItem.icon }}
+                                  v-icon(v-else) {{ navItem.icon || 'mdi-folder' }}
+                                v-list-item-title {{navItem.label}}
+                                v-list-item-action
+                                  v-icon {{ isAccordionExpanded(navItem) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+                              
+                              // Show accordion children when expanded
+                              nav-accordion-children(
+                                v-if='isAccordionExpanded(navItem) && navItem.children && navItem.children.length > 0'
+                                :children='navItem.children'
+                                :current='current'
+                                :level='1'
+                                :expanded-accordions='expandedAccordions'
+                                @select='selectItem'
+                                @toggle-accordion='toggleAccordion'
+                              )
                       v-card-chin
                         v-menu(offset-y, bottom, min-width='200px', style='flex: 1 1;')
                           template(v-slot:activator='{ on }')
@@ -240,70 +251,35 @@
                         v-toolbar(height='56', color='teal lighten-1', flat, dark)
                           .subtitle-1 Edit Accordion
                           v-spacer
+                          v-tooltip(top)
+                            template(v-slot:activator='{ on }')
+                              v-btn.mr-2(icon, v-on='on', @click='openBulkPageSelector')
+                                v-icon mdi-file-multiple
+                            span Add Multiple Pages
                           v-btn.px-5(color='white', outlined, @click='deleteItem(current)')
                             v-icon(left) mdi-delete
                             span Delete Accordion
+                            
+                        // Enhanced Accordion Tree Manager
+                        accordion-tree-manager(
+                          ref='accordionTreeManager'
+                          :accordion='current'
+                          v-model='current'
+                          @change='onAccordionChange'
+                          @select-page-for-child='openPageSelectorForChild'
+                        )
+                        
+                        // Accordion Name Editor
                         v-card-text
                           v-text-field(
                             outlined
-                            :label='$t("navigation.label")'
-                            prepend-icon='mdi-format-title'
+                            :label='"Accordion Name"'
+                            prepend-icon='mdi-folder'
                             v-model='current.label'
                             counter='255'
+                            @blur='onAccordionLabelChange'
+                            @keyup.enter='onAccordionLabelChange'
                           )
-                          v-text-field(
-                            outlined
-                            :label='$t("navigation.icon")'
-                            prepend-icon='mdi-dice-5'
-                            v-model='current.icon'
-                            hide-details
-                          )
-                          v-switch(
-                            v-model='current.expanded'
-                            label='Expanded by default'
-                            color='primary'
-                            hide-details
-                          )
-                        v-divider
-                        v-card-text
-                          .subtitle-2.mb-3 Accordion Children
-                          .caption.mb-3 Manage child items for this accordion
-                          
-                          v-list(v-if='current.children && current.children.length > 0', dense)
-                            v-list-item(
-                              v-for='(child, childIdx) in current.children'
-                              :key='child.id'
-                              :class='(child === current) ? "blue" : ""'
-                              @click='selectItem(child)'
-                            )
-                              v-list-item-avatar(size='20')
-                                v-icon(size='16') {{ child.icon || 'mdi-link' }}
-                              v-list-item-title {{ child.label }}
-                              v-list-item-action
-                                v-btn(icon, x-small, @click.stop='removeChild(childIdx)')
-                                  v-icon mdi-delete
-                          
-                          .text-center.my-3(v-else)
-                            .caption.grey--text No child items yet
-                          
-                          v-menu(offset-y, bottom, min-width='200px')
-                            template(v-slot:activator='{ on }')
-                              v-btn(v-on='on', small, color='primary', outlined, block)
-                                v-icon(left, small) mdi-plus
-                                span Add Child Item
-                            v-list
-                              v-list-item(@click='addChildItem("link")')
-                                v-list-item-avatar(size='20'): v-icon mdi-link
-                                v-list-item-title Link
-                              v-list-item(@click='addChildItem("header")')
-                                v-list-item-avatar(size='20'): v-icon mdi-format-title
-                                v-list-item-title Header
-                              v-list-item(@click='addChildItem("divider")')
-                                v-list-item-avatar(size='20'): v-icon mdi-minus
-                                v-list-item-title Divider
-                              v-list-item(@click='addChildItem("accordion")')
-                                v-list-item-avatar(size='20'): v-icon mdi-folder
-                                v-list-item-title Nested Accordion
 
                       v-card-text(v-if='current.kind')
                         v-radio-group.pl-8(v-model='current.visibilityMode', mandatory, hide-details)
@@ -354,6 +330,12 @@
             span {{$t('common:actions.copy')}}
 
     page-selector(mode='select', v-model='selectPageModal', :open-handler='selectPageHandle', path='home', :locale='currentLang')
+    
+    bulk-page-selector(
+      v-model='bulkPageSelectorOpen'
+      :current-locale='currentLang'
+      @pages-selected='onBulkPagesSelected'
+    )
 </template>
 
 <script>
@@ -364,12 +346,18 @@ import { v4 as uuid } from 'uuid'
 import groupsQuery from 'gql/admin/users/users-query-groups.gql'
 
 import draggable from 'vuedraggable'
+import AccordionTreeManager from './accordion-tree-manager'
+import BulkPageSelector from './bulk-page-selector'
+import NavAccordionChildren from './nav-accordion-children'
 
 /* global siteConfig, siteLangs */
 
 export default {
   components: {
-    draggable
+    draggable,
+    AccordionTreeManager,
+    BulkPageSelector,
+    NavAccordionChildren
   },
   data() {
     return {
@@ -383,7 +371,10 @@ export default {
         mode: 'NONE'
       },
       allLocales: [],
-      copyFromLocaleCode: 'en'
+      copyFromLocaleCode: 'en',
+      bulkPageSelectorOpen: false,
+      childForPageSelection: null,
+      expandedAccordions: {}
     }
   },
   computed: {
@@ -519,6 +510,86 @@ export default {
     removeChild(index) {
       this.current.children.splice(index, 1)
     },
+    onAccordionChange(updatedAccordion) {
+      // Recursively find and update the accordion anywhere in the tree
+      const updateAccordionInTree = (items) => {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].id === updatedAccordion.id) {
+            this.$set(items, i, updatedAccordion)
+            return true
+          }
+          if (items[i].children && items[i].children.length > 0) {
+            if (updateAccordionInTree(items[i].children)) {
+              return true
+            }
+          }
+        }
+        return false
+      }
+      
+      if (updateAccordionInTree(this.currentTree)) {
+        // Also update the current item if it's the same accordion
+        if (this.current.id === updatedAccordion.id) {
+          this.current = updatedAccordion
+        }
+        // Force reactivity update
+        this.$forceUpdate()
+      }
+    },
+    onAccordionLabelChange() {
+      // Trigger change event to update the tree
+      this.onAccordionChange(this.current)
+    },
+    openBulkPageSelector() {
+      this.bulkPageSelectorOpen = true
+    },
+    onBulkPagesSelected(pages) {
+      if (!this.current.children) {
+        this.$set(this.current, 'children', [])
+      }
+      
+      // Pages are already properly formatted by the bulk selector
+      this.current.children.push(...pages)
+      this.bulkPageSelectorOpen = false
+      
+      // Show success notification
+      this.$store.commit('showNotification', {
+        message: `Added ${pages.length} page(s) to ${this.current.label}`,
+        style: 'success',
+        icon: 'check'
+      })
+      
+      // Trigger accordion change to update the tree
+      this.onAccordionChange(this.current)
+      
+      // Ensure the accordion is expanded to show new items
+      this.$set(this.expandedAccordions, this.current.id, true)
+    },
+    openPageSelectorForChild(child) {
+      this.childForPageSelection = child
+      this.selectPageModal = true
+    },
+    selectPageHandle ({ path, locale }) {
+      console.log('SELECT PAGE HANDLE CALLED:', path, locale)
+      if (this.childForPageSelection) {
+        console.log('CHILD FOR PAGE SELECTION:', this.childForPageSelection)
+        // ALWAYS use local state approach - don't modify the object directly
+        const treeManager = this.$refs.accordionTreeManager
+        console.log('TREE MANAGER FOUND:', treeManager)
+        if (treeManager && treeManager.onPageSelected) {
+          console.log('CALLING onPageSelected')
+          // Update local state in the tree manager instead of directly modifying
+          treeManager.onPageSelected(path, locale)
+        } else {
+          console.log('USING FALLBACK - WILL CAUSE CLOSE')
+          // Fallback - update the target directly if local state isn't working
+          this.childForPageSelection.target = `/${locale}/${path}`
+        }
+        this.childForPageSelection = null
+      } else {
+        this.current.target = `/${locale}/${path}`
+      }
+    },
     async save() {
       this.$store.commit(`loadingStart`, 'admin-navigation-save')
       try {
@@ -564,6 +635,17 @@ export default {
       }
       this.$store.commit(`loadingStop`, 'admin-navigation-save')
     },
+    toggleAccordion(accordion) {
+      if (this.expandedAccordions[accordion.id]) {
+        this.$delete(this.expandedAccordions, accordion.id)
+      } else {
+        this.$set(this.expandedAccordions, accordion.id, true)
+      }
+      this.selectItem(accordion)
+    },
+    isAccordionExpanded(accordion) {
+      return !!this.expandedAccordions[accordion.id]
+    },
     async refresh() {
       await this.$apollo.queries.trees.refetch()
       this.current = {}
@@ -593,39 +675,49 @@ export default {
     },
     trees: {
       query: gql`
+        fragment NavigationItemFields on NavigationItem {
+          id
+          kind
+          label
+          icon
+          targetType
+          target
+          visibilityMode
+          visibilityGroups
+          expanded
+        }
+        
         {
           navigation {
             tree {
               locale
               items {
-                id
-                kind
-                label
-                icon
-                targetType
-                target
-                visibilityMode
-                visibilityGroups
-                expanded
+                ...NavigationItemFields
                 children {
-                  id
-                  kind
-                  label
-                  icon
-                  targetType
-                  target
-                  visibilityMode
-                  visibilityGroups
-                  expanded
+                  ...NavigationItemFields
                   children {
-                    id
-                    kind
-                    label
-                    icon
-                    targetType
-                    target
-                    visibilityMode
-                    visibilityGroups
+                    ...NavigationItemFields
+                    children {
+                      ...NavigationItemFields
+                      children {
+                        ...NavigationItemFields
+                        children {
+                          ...NavigationItemFields
+                          children {
+                            ...NavigationItemFields
+                            children {
+                              ...NavigationItemFields
+                              children {
+                                ...NavigationItemFields
+                                children {
+                                  ...NavigationItemFields
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
